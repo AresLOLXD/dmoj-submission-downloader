@@ -38,6 +38,8 @@
 (function () {
     const form = document.querySelector('form[action="/download"]');
     const modal = document.getElementById('loading-modal');
+    let interval = null;
+    let timeout = null;
 
     function getCookie(name) {
         return document.cookie.split(';').some(function (c) {
@@ -46,9 +48,11 @@
         });
     }
 
-    function dismissModal(interval, timeout) {
+    function dismissModal() {
         clearInterval(interval);
         clearTimeout(timeout);
+        interval = null;
+        timeout = null;
         document.cookie = 'download_ready=; Max-Age=0; Path=/';
         modal.style.display = 'none';
     }
@@ -59,14 +63,10 @@
         const token = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
         modal.style.display = 'flex';
 
-        let interval;
-        const timeout = setTimeout(function () {
-            dismissModal(interval, timeout);
-        }, 60000);
-
+        timeout = setTimeout(dismissModal, 60000);
         interval = setInterval(function () {
             if (getCookie('download_ready')) {
-                dismissModal(interval, timeout);
+                dismissModal();
             }
         }, 500);
 
@@ -75,7 +75,7 @@
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && modal.style.display !== 'none') {
-            modal.style.display = 'none';
+            dismissModal();
         }
     });
 }());
