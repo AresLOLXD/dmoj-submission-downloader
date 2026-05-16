@@ -64,3 +64,44 @@ async def test_deactivate_user_via_admin():
         db.row_factory = aiosqlite.Row
         updated = await get_user_by_username(db, "delegate1")
     assert updated.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_create_user_logs_info(caplog):
+    import logging
+    with caplog.at_level(logging.INFO, logger="app.admin"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "admin1", "password": "adminpass"})
+            await client.post("/admin/users", data={"username": "newuser", "password": "pw"})
+    assert any(
+        "user_created" in r.message and "admin1" in r.message and "newuser" in r.message
+        for r in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_toggle_user_logs_info(caplog):
+    import logging
+    with caplog.at_level(logging.INFO, logger="app.admin"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "admin1", "password": "adminpass"})
+            async with aiosqlite.connect(TEST_DB) as db:
+                db.row_factory = aiosqlite.Row
+                from app.database import get_user_by_username
+                target = await get_user_by_username(db, "delegate1")
+            await client.post(f"/admin/users/{target.id}/toggle")
+    assert any("user_toggled" in r.message and "admin1" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_reset_password_logs_info(caplog):
+    import logging
+    with caplog.at_level(logging.INFO, logger="app.admin"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "admin1", "password": "adminpass"})
+            async with aiosqlite.connect(TEST_DB) as db:
+                db.row_factory = aiosqlite.Row
+                from app.database import get_user_by_username
+                target = await get_user_by_username(db, "delegate1")
+            await client.post(f"/admin/users/{target.id}/reset-password", data={"new_password": "newpw"})
+    assert any("password_reset" in r.message and "admin1" in r.message for r in caplog.records)
