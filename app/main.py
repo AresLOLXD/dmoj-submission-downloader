@@ -37,15 +37,17 @@ class LoggingMiddleware:
                 status_code = message["status"]
             await send(message)
 
-        await self.app(scope, receive, send_wrapper)
-        duration = time.monotonic() - start
-        logger.info(
-            "%s %s status=%d duration=%.2fs",
-            scope["method"],
-            scope["path"],
-            status_code,
-            duration,
-        )
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            duration = time.monotonic() - start
+            logger.info(
+                "%s %s status=%d duration=%.2fs",
+                scope["method"],
+                scope["path"],
+                status_code,
+                duration,
+            )
 
 
 app = FastAPI()
@@ -113,7 +115,7 @@ async def download(request: Request, slug: str, token: str | None = None):
         return RedirectResponse("/login", status_code=302)
 
     if not re.fullmatch(r"[a-zA-Z0-9_\-]{1,64}", slug):
-        logger.warning("download_invalid_slug slug=%s user=%s", slug, user.username)
+        logger.warning("download_invalid_slug slug=%s user=%s", repr(slug[:128]), user.username)
         return templates.TemplateResponse(
             request,
             "dashboard.html",
