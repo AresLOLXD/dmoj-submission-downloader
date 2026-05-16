@@ -31,13 +31,14 @@ async def login(request: Request, username: str = Form(...), password: str = For
             {"request": request, "user": None, "error": "Invalid username or password"},
             status_code=200,
         )
+    request.session.clear()
     request.session["user_id"] = user.id
-    return RedirectResponse("/dashboard", status_code=302)
+    return RedirectResponse("/dashboard", status_code=303)
 
 @app.post("/logout")
 async def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("/login", status_code=302)
+    return RedirectResponse("/login", status_code=303)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
