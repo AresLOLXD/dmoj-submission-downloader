@@ -116,7 +116,7 @@ El despliegue en producción utiliza:
 sudo apt update && sudo apt upgrade -y
 
 # Instalar Python 3.11 si no lo tiene
-sudo apt install -y python3.11 python3.11-venv python3.11-dev
+sudo apt install -y python3.11 python3.11-dev
 
 # Instalar Caddy
 sudo apt install -y caddy
@@ -154,9 +154,8 @@ Asegúrate de completar todos los valores, especialmente:
 ### Paso 4: Crear primer administrador
 
 ```bash
-source /opt/dmoj-downloader/.venv/bin/activate
 cd /opt/dmoj-downloader
-python3 create_admin.py tu_usuario_admin tu_contraseña_segura
+uv run python3 create_admin.py tu_usuario_admin tu_contraseña_segura
 ```
 
 ### Paso 5: Instalar servicio systemd
