@@ -27,6 +27,10 @@ templates = Jinja2Templates(directory="templates")
 async def startup():
     await init_db()
 
+@app.get("/")
+async def root():
+    return RedirectResponse("/dashboard", status_code=302)
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

@@ -1,0 +1,348 @@
+# DMOJ Submission Downloader
+
+Una aplicación web que permite a delegados autenticados descargar todos los envíos de un concurso DMOJ auto-hospedado como un archivo ZIP en streaming. Los administradores gestionan cuentas de usuario a través de un panel web.
+
+## Requisitos
+
+- Python 3.11 o superior
+- SQLite 3 (incluido en Python)
+- Caddy (para producción con TLS automático)
+- Acceso a una instancia DMOJ auto-hospedada con token API válido
+
+## Instalación
+
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/tu-usuario/dmoj-downloader.git
+cd dmoj-downloader
+```
+
+### 2. Crear entorno virtual
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+En Windows:
+```cmd
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### 3. Instalar dependencias
+
+```bash
+pip install -r requirements.txt
+```
+
+## Configuración
+
+### Variables de entorno
+
+Copia el archivo `.env.example` a `.env` y completa los valores:
+
+```bash
+cp .env.example .env
+```
+
+Edita `.env` con tus valores:
+
+```
+DMOJ_BASE_URL=https://tu-instancia-dmoj.com
+DMOJ_API_TOKEN=tu_token_aqui
+SECRET_KEY=una_cadena_larga_aleatoria_muy_segura
+```
+
+**Descripción de variables:**
+
+- `DMOJ_BASE_URL`: URL completa de tu instancia DMOJ (sin barra final). Ejemplo: `https://dmoj.example.com`
+- `DMOJ_API_TOKEN`: Token de API válido de DMOJ con permisos para acceder a participantes y envíos de concursos
+- `SECRET_KEY`: Cadena aleatoria larga para firmar sesiones. Genérala con:
+  ```bash
+  python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+  ```
+
+## Bootstrap: Crear primer administrador
+
+Después de configurar las variables de entorno, crea la base de datos y el usuario administrador inicial:
+
+```bash
+python3 create_admin.py nombre_usuario contraseña_segura
+```
+
+Ejemplo:
+```bash
+python3 create_admin.py admin mi_contraseña_fuerte_123
+```
+
+Este comando:
+1. Inicializa la base de datos SQLite (`dmoj_downloader.db`)
+2. Crea un usuario administrador con las credenciales proporcionadas
+3. Imprime un mensaje de confirmación
+
+**Nota:** Solo puedes crear un administrador inicial con este script. Para agregar más usuarios, usa el panel de administración web después de iniciar sesión.
+
+## Desarrollo local
+
+### Ejecutar el servidor
+
+```bash
+source .venv/bin/activate
+python3 -m uvicorn app.main:app --reload
+```
+
+El servidor estará disponible en `http://localhost:8000`.
+
+### Acceder a la aplicación
+
+1. Abre tu navegador en `http://localhost:8000`
+2. Se redirige automáticamente a `/login`
+3. Inicia sesión con el usuario administrador que creaste
+4. Verás el panel de control con la opción de descargar concursos
+
+### Rutas principales
+
+- `GET /` - Redirige a `/dashboard`
+- `GET /login` - Página de inicio de sesión
+- `POST /login` - Procesa el formulario de inicio de sesión
+- `GET /dashboard` - Panel de control (requiere autenticación)
+- `GET /download?slug=nombre-concurso` - Descarga ZIP del concurso (requiere autenticación)
+- `POST /logout` - Cierra la sesión
+- `GET /health` - Estado de salud del servidor
+
+## Despliegue en producción
+
+### Estructura del despliegue
+
+El despliegue en producción utiliza:
+- **Uvicorn** como servidor ASGI (escuchando en `127.0.0.1:8000`)
+- **systemd** como gestor de servicios (reinicio automático en fallos)
+- **Caddy** como proxy inverso con TLS automático
+
+### Paso 1: Preparar el servidor
+
+```bash
+# Actualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar Python 3.11 si no lo tiene
+sudo apt install -y python3.11 python3.11-venv python3.11-dev
+
+# Instalar Caddy
+sudo apt install -y caddy
+
+# Crear directorio de la aplicación (ajusta la ruta según sea necesario)
+sudo mkdir -p /opt/dmoj-downloader
+sudo chown dmoj-dl:dmoj-dl /opt/dmoj-downloader
+```
+
+### Paso 2: Clonar y configurar
+
+```bash
+cd /opt/dmoj-downloader
+git clone https://github.com/tu-usuario/dmoj-downloader.git .
+
+# Crear entorno virtual
+python3.11 -m venv .venv
+source .venv/bin/activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+```
+
+### Paso 3: Configurar variables de entorno
+
+```bash
+# Crear archivo .env desde el ejemplo
+cp .env.example .env
+
+# Editar con los valores de producción
+nano .env
+```
+
+Asegúrate de completar todos los valores, especialmente:
+- `DMOJ_BASE_URL`
+- `DMOJ_API_TOKEN`
+- `SECRET_KEY` (generado con `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`)
+
+### Paso 4: Crear primer administrador
+
+```bash
+source /opt/dmoj-downloader/.venv/bin/activate
+cd /opt/dmoj-downloader
+python3 create_admin.py tu_usuario_admin tu_contraseña_segura
+```
+
+### Paso 5: Instalar servicio systemd
+
+Copia el archivo de servicio a systemd:
+
+```bash
+sudo cp dmoj-downloader.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+Inicia el servicio:
+
+```bash
+sudo systemctl start dmoj-downloader
+sudo systemctl enable dmoj-downloader
+```
+
+Verifica el estado:
+
+```bash
+sudo systemctl status dmoj-downloader
+```
+
+Ver logs:
+
+```bash
+sudo journalctl -u dmoj-downloader -f
+```
+
+### Paso 6: Configurar Caddy
+
+Edita el Caddyfile:
+
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+
+Reemplaza el contenido con:
+
+```
+tu-dominio.com {
+    reverse_proxy localhost:8000
+}
+```
+
+Reemplaza `tu-dominio.com` con tu dominio real.
+
+Recarga la configuración de Caddy:
+
+```bash
+sudo systemctl reload caddy
+```
+
+Verifica que Caddy esté corriendo:
+
+```bash
+sudo systemctl status caddy
+```
+
+### Paso 7: Verificar despliegue
+
+1. Accede a `https://tu-dominio.com` en tu navegador
+2. Serás redirigido a `/login` automáticamente
+3. Inicia sesión con las credenciales del administrador creado
+4. Verifica que el panel de control funcione
+
+## Uso
+
+### Descargar concursos (usuarios delegados)
+
+1. Inicia sesión con una cuenta de delegado
+2. En el panel de control, ingresa el slug del concurso (ejemplo: `icpc2024`)
+3. Haz clic en "Descargar"
+4. Se genera un archivo ZIP con todos los envíos en streaming
+5. El ZIP incluye envíos organizados por usuario y problema, con marcas de tiempo
+
+Estructura del ZIP descargado:
+```
+nombre-concurso.zip
+├── usuario1/
+│   ├── problema_a/
+│   │   ├── 1_usuario1_2024-01-15_14-30-45_AC.py
+│   │   └── 2_usuario1_2024-01-15_14-35-20_WA.py
+│   └── problema_b/
+│       └── 1_usuario1_2024-01-15_15-10-00_AC.cpp
+└── usuario2/
+    └── problema_a/
+        └── 1_usuario2_2024-01-15_13-45-30_AC.java
+```
+
+### Panel de administración
+
+1. Inicia sesión como administrador
+2. Accede a `/admin` (enlace visible en la barra de navegación)
+3. Gestiona usuarios:
+   - Ver lista completa de usuarios
+   - Crear nuevos usuarios (delegados o administradores)
+   - Resetear contraseñas
+   - Activar/desactivar cuentas
+
+### Monitoreo en producción
+
+Verifica que el servicio esté corriendo:
+
+```bash
+sudo systemctl status dmoj-downloader
+```
+
+Ver logs en tiempo real:
+
+```bash
+sudo journalctl -u dmoj-downloader -f
+```
+
+Ver logs de un período específico:
+
+```bash
+sudo journalctl -u dmoj-downloader --since "2 hours ago"
+```
+
+Verifica la conectividad con DMOJ:
+
+```bash
+curl https://tu-instancia-dmoj.com/api/
+```
+
+Verifica que el endpoint de salud responda:
+
+```bash
+curl https://tu-dominio.com/health
+```
+
+## Solución de problemas
+
+### El servicio no inicia
+
+```bash
+sudo journalctl -u dmoj-downloader -n 50
+```
+
+Causas comunes:
+- Variables de entorno no definidas: verifica que `.env` exista con todos los valores
+- Permisos incorrectos: asegúrate de que el usuario `dmoj-dl` tiene permisos de lectura en el directorio
+- Puerto 8000 en uso: cambia el puerto en `dmoj-downloader.service`
+
+### No puedo conectarme a DMOJ
+
+- Verifica `DMOJ_BASE_URL` en `.env` (sin barra final)
+- Verifica que `DMOJ_API_TOKEN` sea válido
+- Comprueba la conectividad con: `curl https://tu-instancia-dmoj.com/api/`
+
+### Caddy no obtiene certificado TLS
+
+```bash
+sudo systemctl restart caddy
+sudo journalctl -u caddy -n 50
+```
+
+Asegúrate de que:
+- El dominio apunta correctamente a la dirección IP del servidor
+- El puerto 443 está abierto y accesible desde internet
+- El puerto 80 está abierto para validación ACME
+
+### Descarga de concurso no comienza
+
+1. Verifica que el slug sea válido (solo alfanuméricos, guiones y guiones bajos)
+2. Asegúrate de que el concurso existe en DMOJ
+3. Verifica logs: `sudo journalctl -u dmoj-downloader -f`
+
+## Licencia
+
+Ver LICENSE para detalles.
