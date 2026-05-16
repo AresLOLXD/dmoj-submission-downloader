@@ -67,7 +67,7 @@ async def dashboard(request: Request):
 
 
 @app.get("/download")
-async def download(request: Request, slug: str):
+async def download(request: Request, slug: str, token: str | None = None):
     user = await get_current_user(request)
     if user is None or not user.is_active:
         return RedirectResponse("/login", status_code=302)
@@ -120,8 +120,14 @@ async def download(request: Request, slug: str):
                 "source": source.encode(),
             })
 
+    headers: dict[str, str] = {"Content-Disposition": f'attachment; filename="{sanitize_name(slug)}.zip"'}
+    if token is not None and re.fullmatch(r"[a-zA-Z0-9\-]{1,64}", token):
+        cookie = f"download_ready={token}; Path=/; SameSite=Strict"
+        if config.HTTPS_ONLY:
+            cookie += "; Secure"
+        headers["Set-Cookie"] = cookie
     return StreamingResponse(
         stream_contest_zip(iter(subs)),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{sanitize_name(slug)}.zip"'},
+        headers=headers,
     )

@@ -102,3 +102,47 @@ async def test_download_index_has_no_gaps_when_source_missing():
     assert any("1_alice" in n for n in names)
     assert any("2_alice" in n for n in names)
     assert not any("3_alice" in n for n in names)
+
+@pytest.mark.asyncio
+async def test_download_sets_cookie_when_valid_token_provided():
+    with respx.mock:
+        respx.get(f"{BASE}/api/v2/contest/ioi2025").mock(return_value=httpx.Response(200, json={
+            "data": {"object": {"key": "ioi2025", "rankings": [{"user": "alice"}]}}
+        }))
+        respx.get(f"{BASE}/api/v2/submissions").mock(return_value=httpx.Response(200, json={
+            "data": {
+                "objects": [
+                    {"id": 1, "user": "alice", "problem": "prob_a", "result": "AC",
+                     "language": "PY3", "date": "2025-05-15T14:30:22+00:00"},
+                ],
+                "has_more": False
+            }
+        }))
+        respx.get(f"{BASE}/src/1/raw").mock(return_value=httpx.Response(200, text="print('hi')"))
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "user1", "password": "pass"})
+            response = await client.get("/download?slug=ioi2025&token=abc12345")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie", "")
+    assert "download_ready=abc12345" in cookie_header
+
+
+@pytest.mark.asyncio
+async def test_download_ignores_invalid_token():
+    with respx.mock:
+        respx.get(f"{BASE}/api/v2/contest/ioi2025").mock(return_value=httpx.Response(200, json={
+            "data": {"object": {"key": "ioi2025", "rankings": [{"user": "alice"}]}}
+        }))
+        respx.get(f"{BASE}/api/v2/submissions").mock(return_value=httpx.Response(200, json={
+            "data": {"objects": [], "has_more": False}
+        }))
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "user1", "password": "pass"})
+            response = await client.get("/download?slug=ioi2025&token=bad%0d%0atoken")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie", "")
+    assert "download_ready" not in cookie_header
