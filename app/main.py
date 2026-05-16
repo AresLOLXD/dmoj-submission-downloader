@@ -1,10 +1,14 @@
+from datetime import datetime
+
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from app import config
 from app.database import init_db
 from app.auth import authenticate, get_current_user
+from app.dmoj_client import DMOJClient, ContestNotFoundError
+from app.zip_builder import sanitize_name, stream_contest_zip
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=config.SECRET_KEY, max_age=28800)
@@ -46,3 +50,55 @@ async def dashboard(request: Request):
     if user is None or not user.is_active:
         return RedirectResponse("/login", status_code=302)
     return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+
+
+@app.get("/download")
+async def download(request: Request, slug: str):
+    user = await get_current_user(request)
+    if user is None or not user.is_active:
+        return RedirectResponse("/login", status_code=302)
+
+    dmoj = DMOJClient(base_url=config.DMOJ_BASE_URL, token=config.DMOJ_API_TOKEN)
+
+    try:
+        await dmoj.get_contest_participants(slug)
+    except ContestNotFoundError:
+        return templates.TemplateResponse(
+            "dashboard.html",
+            {"request": request, "user": user, "error": f"Concurso '{slug}' no encontrado."},
+        )
+
+    async def collect():
+        submissions = await dmoj.get_contest_submissions(slug)
+        counters: dict[str, dict[str, int]] = {}
+        result = []
+        for sub in submissions:
+            username = sub["user"]
+            problem = sub["problem"]
+            sanitized = sanitize_name(username)
+            counters.setdefault(sanitized, {}).setdefault(problem, 0)
+            counters[sanitized][problem] += 1
+            index = counters[sanitized][problem]
+
+            dt = datetime.fromisoformat(sub["date"].replace("Z", "+00:00"))
+            source = await dmoj.get_submission_source(sub["id"])
+            ext = DMOJClient.language_to_ext(sub.get("language", ""))
+
+            result.append({
+                "sanitized_username": sanitized,
+                "problem": problem,
+                "index": index,
+                "date_str": dt.strftime("%Y-%m-%d"),
+                "time_str": dt.strftime("%H-%M-%S"),
+                "verdict": sub.get("result", "UNK"),
+                "ext": ext,
+                "source": source.encode() if isinstance(source, str) else source,
+            })
+        return result
+
+    subs = await collect()
+    return StreamingResponse(
+        stream_contest_zip(iter(subs)),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.zip"'},
+    )

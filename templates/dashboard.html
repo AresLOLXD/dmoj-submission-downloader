@@ -1,8 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Descargar envíos{% endblock %}
 {% block content %}
 <div class="bg-white rounded-xl shadow p-8">
     <h1 class="text-2xl font-bold text-gray-800 mb-2">Descargar envíos de concurso</h1>
-    <p class="text-gray-400 text-sm">Coming soon</p>
+    <p class="text-gray-500 text-sm mb-6">Ingresa el slug del concurso (ej. <code class="bg-gray-100 px-1 rounded">ioi2025</code>)</p>
+    {% if error %}
+        <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">{{ error }}</div>
+    {% endif %}
+    <form method="get" action="/download" class="flex gap-3">
+        <input name="slug" type="text" placeholder="slug-del-concurso" required
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit"
+            class="bg-blue-600 text-white rounded-lg px-5 py-2 font-medium hover:bg-blue-700 transition whitespace-nowrap">
+            Descargar ZIP
+        </button>
+    </form>
 </div>
 {% endblock %}
