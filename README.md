@@ -58,12 +58,12 @@ SECRET_KEY=una_cadena_larga_aleatoria_muy_segura
 Después de configurar las variables de entorno, crea la base de datos y el usuario administrador inicial:
 
 ```bash
-python3 create_admin.py nombre_usuario contraseña_segura
+uv run python3 create_admin.py nombre_usuario contraseña_segura
 ```
 
 Ejemplo:
 ```bash
-python3 create_admin.py admin mi_contraseña_fuerte_123
+uv run python3 create_admin.py admin mi_contraseña_fuerte_123
 ```
 
 Este comando:
@@ -117,6 +117,9 @@ sudo apt update && sudo apt upgrade -y
 
 # Instalar Python 3.11 si no lo tiene
 sudo apt install -y python3.11 python3.11-dev
+
+# Instalar uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Instalar Caddy
 sudo apt install -y caddy
