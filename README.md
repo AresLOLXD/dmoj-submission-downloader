@@ -1,6 +1,6 @@
 # DMOJ Submission Downloader
 
-Una aplicación web que permite a delegados autenticados descargar todos los envíos de un concurso DMOJ auto-hospedado como un archivo ZIP en streaming. Los administradores gestionan cuentas de usuario a través de un panel web.
+Una aplicación web FastAPI que permite a delegados autenticados descargar todos los envíos de un concurso DMOJ auto-hospedado como un archivo ZIP en streaming. Los administradores gestionan cuentas de usuario a través de un panel web.
 
 ## Requisitos
 
@@ -42,6 +42,7 @@ Edita `.env` con tus valores:
 DMOJ_BASE_URL=https://tu-instancia-dmoj.com
 DMOJ_API_TOKEN=tu_token_aqui
 SECRET_KEY=una_cadena_larga_aleatoria_muy_segura
+LOG_LEVEL=INFO
 ```
 
 **Descripción de variables:**
@@ -52,6 +53,8 @@ SECRET_KEY=una_cadena_larga_aleatoria_muy_segura
   ```bash
   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
   ```
+- `LOG_LEVEL`: Nivel de registro (por defecto `INFO`). Opciones: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+- `HTTPS_ONLY`: (opcional) Si es `true` (por defecto), las cookies de sesión requieren HTTPS. Usa `false` solo en desarrollo local
 
 ## Bootstrap: Crear primer administrador
 
@@ -62,11 +65,13 @@ uv run python3 create_admin.py nombre_usuario contraseña_segura
 ```
 
 Ejemplo:
+
 ```bash
 uv run python3 create_admin.py admin mi_contraseña_fuerte_123
 ```
 
 Este comando:
+
 1. Inicializa la base de datos SQLite (`dmoj_downloader.db`)
 2. Crea un usuario administrador con las credenciales proporcionadas
 3. Imprime un mensaje de confirmación
@@ -92,19 +97,32 @@ El servidor estará disponible en `http://localhost:8000`.
 
 ### Rutas principales
 
-- `GET /` - Redirige a `/dashboard`
+**Autenticación:**
+
 - `GET /login` - Página de inicio de sesión
 - `POST /login` - Procesa el formulario de inicio de sesión
-- `GET /dashboard` - Panel de control (requiere autenticación)
-- `GET /download?slug=nombre-concurso` - Descarga ZIP del concurso (requiere autenticación)
 - `POST /logout` - Cierra la sesión
-- `GET /health` - Estado de salud del servidor
+- `GET /health` - Estado de salud del servidor (no requiere autenticación)
+
+**Usuarios (delegados y administradores):**
+
+- `GET /` - Redirige a `/dashboard`
+- `GET /dashboard` - Panel de control (requiere autenticación)
+- `GET /download?slug=nombre-concurso` - Descarga ZIP del concurso en streaming (requiere autenticación)
+
+**Administración (solo administradores):**
+
+- `GET /admin` - Panel de administración
+- `POST /admin/users` - Crear nuevo usuario (delegado o administrador)
+- `POST /admin/users/{user_id}/toggle` - Activar/desactivar una cuenta
+- `POST /admin/users/{user_id}/reset-password` - Cambiar contraseña de un usuario
 
 ## Despliegue en producción
 
 ### Estructura del despliegue
 
 El despliegue en producción utiliza:
+
 - **Uvicorn** como servidor ASGI (escuchando en `127.0.0.1:8000`)
 - **systemd** como gestor de servicios (reinicio automático en fallos)
 - **Caddy** como proxy inverso con TLS automático
@@ -124,10 +142,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Instalar Caddy
 sudo apt install -y caddy
 
-# Crear directorio de la aplicación (ajusta la ruta según sea necesario)
+# Crear directorio de la aplicación
 sudo mkdir -p /opt/dmoj-downloader
-sudo chown dmoj-dl:dmoj-dl /opt/dmoj-downloader
+sudo chown your-user:your-user /opt/dmoj-downloader
 ```
+
+Reemplaza `your-user` con tu usuario de sistema real.
 
 ### Paso 2: Clonar y configurar
 
@@ -150,6 +170,7 @@ nano .env
 ```
 
 Asegúrate de completar todos los valores, especialmente:
+
 - `DMOJ_BASE_URL`
 - `DMOJ_API_TOKEN`
 - `SECRET_KEY` (generado con `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`)
@@ -166,8 +187,15 @@ uv run python3 create_admin.py tu_usuario_admin tu_contraseña_segura
 Copia el archivo de servicio a systemd:
 
 ```bash
-sudo cp dmoj-downloader.service /etc/systemd/system/
+sudo cp /opt/dmoj-downloader/dmoj-downloader.service /etc/systemd/system/
 sudo systemctl daemon-reload
+```
+
+**Nota:** El archivo `dmoj-downloader.service` está configurado para ejecutarse como usuario `dmoj-dl`. Debes crear este usuario:
+
+```bash
+sudo useradd -r -s /bin/false dmoj-dl
+sudo chown -R dmoj-dl:dmoj-dl /opt/dmoj-downloader
 ```
 
 Inicia el servicio:
@@ -237,6 +265,7 @@ sudo systemctl status caddy
 5. El ZIP incluye envíos organizados por usuario y problema, con marcas de tiempo
 
 Estructura del ZIP descargado:
+
 ```
 nombre-concurso.zip
 ├── usuario1/
@@ -257,36 +286,36 @@ nombre-concurso.zip
 3. Gestiona usuarios:
    - Ver lista completa de usuarios
    - Crear nuevos usuarios (delegados o administradores)
-   - Resetear contraseñas
+   - Cambiar contraseñas
    - Activar/desactivar cuentas
 
-### Monitoreo en producción
+## Monitoreo en producción
 
-Verifica que el servicio esté corriendo:
+### Verificar estado del servicio
 
 ```bash
 sudo systemctl status dmoj-downloader
 ```
 
-Ver logs en tiempo real:
+### Ver logs en tiempo real
 
 ```bash
 sudo journalctl -u dmoj-downloader -f
 ```
 
-Ver logs de un período específico:
+### Ver logs de un período específico
 
 ```bash
 sudo journalctl -u dmoj-downloader --since "2 hours ago"
 ```
 
-Verifica la conectividad con DMOJ:
+### Verifica la conectividad con DMOJ
 
 ```bash
 curl https://tu-instancia-dmoj.com/api/
 ```
 
-Verifica que el endpoint de salud responda:
+### Verifica que el endpoint de salud responda
 
 ```bash
 curl https://tu-dominio.com/health
@@ -301,15 +330,17 @@ sudo journalctl -u dmoj-downloader -n 50
 ```
 
 Causas comunes:
-- Variables de entorno no definidas: verifica que `.env` exista con todos los valores
-- Permisos incorrectos: asegúrate de que el usuario `dmoj-dl` tiene permisos de lectura en el directorio
-- Puerto 8000 en uso: cambia el puerto en `dmoj-downloader.service`
+
+- **Variables de entorno no definidas:** Verifica que `/opt/dmoj-downloader/.env` exista con todos los valores requeridos
+- **Permisos incorrectos:** Asegúrate de que el usuario `dmoj-dl` tiene permisos de lectura/escritura en `/opt/dmoj-downloader`
+- **Puerto 8000 en uso:** Cambia el puerto en `/etc/systemd/system/dmoj-downloader.service` y recarga con `sudo systemctl daemon-reload`
 
 ### No puedo conectarme a DMOJ
 
 - Verifica `DMOJ_BASE_URL` en `.env` (sin barra final)
 - Verifica que `DMOJ_API_TOKEN` sea válido
 - Comprueba la conectividad con: `curl https://tu-instancia-dmoj.com/api/`
+- Verifica que la instancia DMOJ esté en línea y accesible desde el servidor
 
 ### Caddy no obtiene certificado TLS
 
@@ -319,15 +350,24 @@ sudo journalctl -u caddy -n 50
 ```
 
 Asegúrate de que:
-- El dominio apunta correctamente a la dirección IP del servidor
+
+- El dominio apunta correctamente a la dirección IP del servidor (verifica con `nslookup tu-dominio.com`)
 - El puerto 443 está abierto y accesible desde internet
 - El puerto 80 está abierto para validación ACME
+- El servidor no tiene un cortafuegos bloqueando estos puertos
 
 ### Descarga de concurso no comienza
 
 1. Verifica que el slug sea válido (solo alfanuméricos, guiones y guiones bajos)
 2. Asegúrate de que el concurso existe en DMOJ
 3. Verifica logs: `sudo journalctl -u dmoj-downloader -f`
+4. Comprueba permisos del token API de DMOJ
+
+### Problemas de rendimiento en descargas grandes
+
+- La descarga es en streaming, por lo que no debería consumir memoria significativa
+- Si la descarga es muy lenta, verifica la conectividad entre el servidor y DMOJ
+- Consulta los logs para errores de conexión a la API
 
 ## Licencia
 
