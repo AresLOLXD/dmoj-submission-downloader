@@ -51,7 +51,7 @@
                         </button>
                     </form>
                     <form method="post" action="/admin/users/{{ u.id }}/reset-password" class="flex gap-1">
-                        <input name="new_password" type="password" placeholder="Nueva contraseña"
+                        <input name="new_password" type="password" placeholder="Nueva contraseña" required
                             class="border border-gray-300 rounded px-2 py-1 text-xs w-32 focus:outline-none">
                         <button class="text-blue-600 hover:underline text-xs">Resetear</button>
                     </form>
