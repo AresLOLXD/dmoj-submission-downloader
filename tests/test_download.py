@@ -104,7 +104,8 @@ async def test_download_index_has_no_gaps_when_source_missing():
     assert not any("3_alice" in n for n in names)
 
 @pytest.mark.asyncio
-async def test_download_sets_cookie_when_valid_token_provided():
+async def test_download_sets_cookie_when_valid_token_provided(monkeypatch):
+    monkeypatch.setattr("app.config.HTTPS_ONLY", False)
     with respx.mock:
         respx.get(f"{BASE}/api/v2/contest/ioi2025").mock(return_value=httpx.Response(200, json={
             "data": {"object": {"key": "ioi2025", "rankings": [{"user": "alice"}]}}
@@ -127,6 +128,7 @@ async def test_download_sets_cookie_when_valid_token_provided():
     assert response.status_code == 200
     cookie_header = response.headers.get("set-cookie", "")
     assert "download_ready=abc12345" in cookie_header
+    assert "SameSite=Strict" in cookie_header
 
 
 @pytest.mark.asyncio

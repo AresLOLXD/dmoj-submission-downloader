@@ -122,6 +122,7 @@ async def download(request: Request, slug: str, token: str | None = None):
 
     headers: dict[str, str] = {"Content-Disposition": f'attachment; filename="{sanitize_name(slug)}.zip"'}
     if token is not None and re.fullmatch(r"[a-zA-Z0-9\-]{1,64}", token):
+        # HttpOnly omitted intentionally — JS must read this cookie to dismiss the loading modal
         cookie = f"download_ready={token}; Path=/; SameSite=Strict"
         if config.HTTPS_ONLY:
             cookie += "; Secure"
