@@ -14,7 +14,7 @@ Una aplicación web FastAPI que permite a delegados autenticados descargar todos
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/tu-usuario/dmoj-downloader.git
+git clone https://github.com/AresLOLXD/dmoj-submission-downloader.git
 cd dmoj-downloader
 ```
 
@@ -153,7 +153,7 @@ Reemplaza `your-user` con tu usuario de sistema real.
 
 ```bash
 cd /opt/dmoj-downloader
-git clone https://github.com/tu-usuario/dmoj-downloader.git .
+git clone https://github.com/AresLOLXD/dmoj-submission-downloader.git .
 
 # Instalar dependencias (requiere uv)
 uv sync
