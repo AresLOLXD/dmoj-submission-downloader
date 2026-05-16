@@ -55,3 +55,27 @@ async def test_dashboard_accessible_when_authenticated():
         await client.post("/login", data={"username": "delegate1", "password": "secret"})
         response = await client.get("/dashboard")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_login_success_logs_info(caplog):
+    import logging
+    with caplog.at_level(logging.INFO, logger="app.auth"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "delegate1", "password": "secret"})
+    assert any(
+        "login_ok" in r.message and "delegate1" in r.message
+        for r in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_login_failure_logs_warning(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="app.auth"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "delegate1", "password": "wrong"})
+    assert any(
+        "login_failed" in r.message and "delegate1" in r.message
+        for r in caplog.records
+    )

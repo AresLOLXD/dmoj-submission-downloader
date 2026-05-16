@@ -1,3 +1,4 @@
+import logging
 import bcrypt
 import aiosqlite
 from fastapi import Request
@@ -6,6 +7,7 @@ from app import database
 from app.models import User
 from typing import Optional
 
+logger = logging.getLogger(__name__)
 
 _DUMMY_HASH = bcrypt.hashpw(b"dummy", bcrypt.gensalt(rounds=12)).decode()
 
@@ -15,9 +17,12 @@ async def authenticate(username: str, password: str) -> Optional[User]:
         user = await get_user_by_username(db, username)
     check_hash = user.password_hash if (user and user.is_active) else _DUMMY_HASH
     if not bcrypt.checkpw(password.encode(), check_hash.encode()):
+        logger.warning("login_failed user=%s", username)
         return None
     if user is None or not user.is_active:
+        logger.warning("login_failed user=%s", username)
         return None
+    logger.info("login_ok user=%s", username)
     return user
 
 

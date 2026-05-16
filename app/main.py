@@ -92,6 +92,9 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
 @app.post("/logout")
 async def logout(request: Request):
+    user = await get_current_user(request)
+    if user:
+        logger.info("logout user=%s", user.username)
     request.session.clear()
     return RedirectResponse("/login", status_code=303)
 
