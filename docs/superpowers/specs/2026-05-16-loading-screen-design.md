@@ -11,7 +11,7 @@ Show a modal overlay while the server builds and begins streaming the ZIP file. 
 
 1. User submits the download form (slug input).
 2. JS intercepts the submit event.
-3. JS generates a short random token (e.g. 8 hex chars via `crypto.randomUUID()`).
+3. JS generates a short random token via `crypto.randomUUID().slice(0, 8)` (first 8 chars of a UUID v4 string — alphanumeric plus possible hyphens, used only as a correlation id).
 4. JS shows the loading modal.
 5. JS navigates to `/download?slug=<slug>&token=<token>` via `window.location.href`.
 6. Server processes the request (fetches submissions, builds ZIP structure).
@@ -23,7 +23,7 @@ Show a modal overlay while the server builds and begins streaming the ZIP file. 
 
 - Read optional `token: str | None` query param in the `/download` endpoint.
 - Before returning the `StreamingResponse`, wrap it to set the cookie header if a token was provided.
-- Use `response.set_cookie(key="download_ready", value=token)` on a `Response` object passed to `StreamingResponse` headers, or inject via `headers={"Set-Cookie": f"download_ready={token}; Path=/; SameSite=Strict"}`.
+- Inject the cookie via the `headers` dict of `StreamingResponse`: `headers={"Set-Cookie": f"download_ready={token}; Path=/; SameSite=Strict"}`.
 
 ## Frontend Changes (`templates/dashboard.html`)
 
@@ -39,13 +39,14 @@ Appended before `{% endblock %}`:
 - Generate token with `crypto.randomUUID().slice(0, 8)`.
 - Show modal.
 - Set `window.location.href` to `/download?slug=<slug>&token=<token>`.
-- Start polling: `setInterval` every 500ms checking `document.cookie` for `download_ready=<token>`.
+- Start polling: `setInterval` every 500ms checking `document.cookie` for `download_ready=<token>`. Note: after `window.location.href` is set, the browser initiates a file download without navigating away from the dashboard page — the interval keeps running on the same page context, which is the correct behavior.
 - On match: clear interval, delete cookie (`document.cookie = "download_ready=; Max-Age=0; Path=/"`), hide modal.
 
 ## Error Handling
 
-- If the server returns an error (invalid slug, contest not found), it renders `dashboard.html` again — the page reload naturally dismisses the modal.
-- No timeout fallback needed: error responses cause a full page navigation, so the modal disappears.
+- If the server returns an error (invalid slug, contest not found), it renders `dashboard.html` — however, since the browser treats the response as a file download attempt initially, the error page navigates the tab, clearing the modal naturally.
+- A `setTimeout` fallback of ~60s must be added to clear the interval and hide the modal in case the cookie is never set (network failure, server crash). Without it, the modal stays stuck forever.
+- The token must be validated server-side with `re.fullmatch(r"[a-zA-Z0-9]{1,64}", token)` before reflecting it into `Set-Cookie`, to prevent header injection via `\r\n` in a crafted token.
 
 ## Scope
 
