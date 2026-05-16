@@ -1,16 +1,52 @@
+import logging
 import re
+import time
 from datetime import datetime
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 from app import config
 from app.database import init_db
 from app.auth import authenticate, get_current_user
 from app.admin import router as admin_router
 from app.dmoj_client import DMOJClient, ContestNotFoundError
 from app.zip_builder import sanitize_name, stream_contest_zip
+from app.logging_config import configure_logging
+
+configure_logging(config.LOG_LEVEL)
+logger = logging.getLogger(__name__)
+
+
+class LoggingMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        start = time.monotonic()
+        status_code = 500
+
+        async def send_wrapper(message: dict) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+        duration = time.monotonic() - start
+        logger.info(
+            "%s %s status=%d duration=%.2fs",
+            scope["method"],
+            scope["path"],
+            status_code,
+            duration,
+        )
+
 
 app = FastAPI()
 app.add_middleware(
@@ -20,6 +56,7 @@ app.add_middleware(
     https_only=config.HTTPS_ONLY,
     same_site="strict",
 )
+app.add_middleware(LoggingMiddleware)
 app.include_router(admin_router)
 templates = Jinja2Templates(directory="templates")
 
