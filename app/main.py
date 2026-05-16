@@ -75,21 +75,19 @@ async def download(request: Request, slug: str):
             {"user": user, "error": "Slug inválido. Solo se permiten letras, números, guiones y guiones bajos."},
         )
 
-    dmoj = DMOJClient(base_url=config.DMOJ_BASE_URL, token=config.DMOJ_API_TOKEN)
+    async with DMOJClient(base_url=config.DMOJ_BASE_URL, token=config.DMOJ_API_TOKEN) as dmoj:
+        try:
+            await dmoj.get_contest_participants(slug)
+        except ContestNotFoundError:
+            return templates.TemplateResponse(
+                request,
+                "dashboard.html",
+                {"user": user, "error": f"Concurso '{slug}' no encontrado."},
+            )
 
-    try:
-        await dmoj.get_contest_participants(slug)
-    except ContestNotFoundError:
-        return templates.TemplateResponse(
-            request,
-            "dashboard.html",
-            {"user": user, "error": f"Concurso '{slug}' no encontrado."},
-        )
-
-    async def collect():
         submissions = await dmoj.get_contest_submissions(slug)
         counters: dict[str, dict[str, int]] = {}
-        result = []
+        subs = []
         for sub in submissions:
             username = sub["user"]
             problem = sub["problem"]
@@ -102,7 +100,7 @@ async def download(request: Request, slug: str):
             source = await dmoj.get_submission_source(sub["id"])
             ext = DMOJClient.language_to_ext(sub.get("language", ""))
 
-            result.append({
+            subs.append({
                 "sanitized_username": sanitized,
                 "problem": problem,
                 "index": index,
@@ -112,9 +110,7 @@ async def download(request: Request, slug: str):
                 "ext": ext,
                 "source": source.encode() if isinstance(source, str) else source,
             })
-        return result
 
-    subs = await collect()
     return StreamingResponse(
         stream_contest_zip(iter(subs)),
         media_type="application/zip",

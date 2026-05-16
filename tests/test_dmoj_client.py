@@ -7,11 +7,11 @@ BASE = "https://dmoj.test"
 TOKEN = "test_token"
 
 @pytest.fixture
-def client():
-    return DMOJClient(base_url=BASE, token=TOKEN)
+def make_client():
+    return lambda: DMOJClient(base_url=BASE, token=TOKEN)
 
 @pytest.mark.asyncio
-async def test_get_contest_participants_returns_usernames(client):
+async def test_get_contest_participants_returns_usernames(make_client):
     with respx.mock:
         respx.get(f"{BASE}/api/v2/contest/ioi2025").mock(return_value=httpx.Response(200, json={
             "data": {
@@ -21,18 +21,20 @@ async def test_get_contest_participants_returns_usernames(client):
                 }
             }
         }))
-        participants = await client.get_contest_participants("ioi2025")
+        async with make_client() as client:
+            participants = await client.get_contest_participants("ioi2025")
     assert participants == ["alice", "bob"]
 
 @pytest.mark.asyncio
-async def test_get_contest_participants_raises_on_404(client):
+async def test_get_contest_participants_raises_on_404(make_client):
     with respx.mock:
         respx.get(f"{BASE}/api/v2/contest/nope").mock(return_value=httpx.Response(404))
         with pytest.raises(ContestNotFoundError):
-            await client.get_contest_participants("nope")
+            async with make_client() as client:
+                await client.get_contest_participants("nope")
 
 @pytest.mark.asyncio
-async def test_get_submissions_paginates(client):
+async def test_get_submissions_paginates(make_client):
     with respx.mock:
         respx.get(f"{BASE}/api/v2/submissions").mock(side_effect=[
             httpx.Response(200, json={
@@ -55,16 +57,18 @@ async def test_get_submissions_paginates(client):
                 }
             }),
         ])
-        submissions = await client.get_contest_submissions("ioi2025")
+        async with make_client() as client:
+            submissions = await client.get_contest_submissions("ioi2025")
     assert len(submissions) == 2
     assert submissions[0]["id"] == 1
     assert submissions[1]["id"] == 2
 
 @pytest.mark.asyncio
-async def test_get_submission_source_returns_code(client):
+async def test_get_submission_source_returns_code(make_client):
     with respx.mock:
         respx.get(f"{BASE}/api/v2/submission/42").mock(return_value=httpx.Response(200, json={
             "data": {"object": {"id": 42, "source": "print('hello')"}}
         }))
-        source = await client.get_submission_source(42)
+        async with make_client() as client:
+            source = await client.get_submission_source(42)
     assert source == "print('hello')"
