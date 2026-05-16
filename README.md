@@ -218,7 +218,10 @@ Si el archivo existe, continúa:
 
 ```bash
 sudo chown dmoj-dl:dmoj-dl /opt/dmoj-downloader/dmoj_downloader.db
+sudo chmod 600 /opt/dmoj-downloader/dmoj_downloader.db
 ```
+
+> Esto protege los hashes de contraseñas almacenados en la base de datos contra lectura por otros usuarios locales del sistema.
 
 ### Paso 7: Instalar servicio systemd
 
@@ -368,6 +371,13 @@ curl https://tu-instancia-dmoj.com/api/
 ```bash
 curl https://tu-dominio.com/health
 ```
+
+## Notas de seguridad
+
+- **Secretos en el entorno del proceso:** systemd lee `.env` como root e inyecta las variables en el entorno del proceso `dmoj-dl`. Un atacante que comprometa el proceso tendrá acceso a `DMOJ_API_TOKEN` y `SECRET_KEY`. Protege el host en consecuencia.
+- **Rotación de credenciales:** Si sospechas que el servidor fue comprometido, regenera `SECRET_KEY` (invalida todas las sesiones activas) y revoca `DMOJ_API_TOKEN` desde el panel de DMOJ.
+- **No subas `.env` a git:** Verifica que `.env` esté en `.gitignore` antes de cualquier commit.
+- **Puertos públicos:** uvicorn escucha en `127.0.0.1:8000` por defecto y no es accesible desde internet. Solo expón los puertos 80 y 443 públicamente.
 
 ## Solución de problemas
 
