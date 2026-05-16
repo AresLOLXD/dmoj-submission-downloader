@@ -5,11 +5,21 @@ After=network.target
 [Service]
 Type=simple
 User=dmoj-dl
+Group=dmoj-dl
 WorkingDirectory=/opt/dmoj-downloader
 EnvironmentFile=/opt/dmoj-downloader/.env
 ExecStart=/opt/dmoj-downloader/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dmoj-downloader
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
 
 [Install]
 WantedBy=multi-user.target
