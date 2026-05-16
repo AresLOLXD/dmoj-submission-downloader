@@ -174,3 +174,52 @@ async def test_download_ignores_invalid_token():
     assert response.status_code == 200
     cookie_header = response.headers.get("set-cookie", "")
     assert "download_ready" not in cookie_header
+
+
+@pytest.mark.asyncio
+async def test_download_start_and_done_logged(caplog):
+    import logging
+    with respx.mock:
+        respx.get(f"{BASE}/api/v2/contest/ioi2025").mock(return_value=httpx.Response(200, json={
+            "data": {"object": {"key": "ioi2025", "rankings": [{"user": "alice"}]}}
+        }))
+        respx.get(f"{BASE}/api/v2/submissions").mock(return_value=httpx.Response(200, json={
+            "data": {
+                "objects": [
+                    {"id": 1, "user": "alice", "problem": "prob_a", "result": "AC",
+                     "language": "PY3", "date": "2025-05-15T14:30:22+00:00"},
+                ],
+                "has_more": False,
+            }
+        }))
+        respx.get(f"{BASE}/src/1/raw").mock(return_value=httpx.Response(200, text="print('hi')"))
+
+        with caplog.at_level(logging.INFO, logger="app.main"):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+                await client.post("/login", data={"username": "user1", "password": "pass"})
+                await client.get("/download?slug=ioi2025")
+
+    assert any("download_start" in r.message and "ioi2025" in r.message for r in caplog.records)
+    assert any("download_done" in r.message and "ioi2025" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_download_invalid_slug_logs_warning(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="app.main"):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "user1", "password": "pass"})
+            await client.get("/download?slug=bad*slug")
+    assert any("download_invalid_slug" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_download_not_found_logs_warning(caplog):
+    import logging
+    with respx.mock:
+        respx.get(f"{BASE}/api/v2/contest/nope").mock(return_value=httpx.Response(404))
+        with caplog.at_level(logging.WARNING, logger="app.main"):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+                await client.post("/login", data={"username": "user1", "password": "pass"})
+                await client.get("/download?slug=nope")
+    assert any("download_not_found" in r.message and "nope" in r.message for r in caplog.records)

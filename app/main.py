@@ -113,16 +113,20 @@ async def download(request: Request, slug: str, token: str | None = None):
         return RedirectResponse("/login", status_code=302)
 
     if not re.fullmatch(r"[a-zA-Z0-9_\-]{1,64}", slug):
+        logger.warning("download_invalid_slug slug=%s user=%s", slug, user.username)
         return templates.TemplateResponse(
             request,
             "dashboard.html",
             {"user": user, "error": "Slug inválido. Solo se permiten letras, números, guiones y guiones bajos."},
         )
 
+    logger.info("download_start slug=%s user=%s", slug, user.username)
+    _download_start = time.monotonic()
     async with DMOJClient(base_url=config.DMOJ_BASE_URL, token=config.DMOJ_API_TOKEN) as dmoj:
         try:
             await dmoj.get_contest_participants(slug)
         except ContestNotFoundError:
+            logger.warning("download_not_found slug=%s user=%s", slug, user.username)
             return templates.TemplateResponse(
                 request,
                 "dashboard.html",
@@ -160,6 +164,12 @@ async def download(request: Request, slug: str, token: str | None = None):
                 "source": source.encode(),
             })
 
+    logger.info(
+        "download_done slug=%s submissions=%d duration=%.2fs",
+        slug,
+        len(subs),
+        time.monotonic() - _download_start,
+    )
     headers: dict[str, str] = {"Content-Disposition": f'attachment; filename="{sanitize_name(slug)}.zip"'}
     if token is not None and re.fullmatch(r"[a-zA-Z0-9\-]{1,64}", token):
         # HttpOnly omitted intentionally — JS must read this cookie to dismiss the loading modal
