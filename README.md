@@ -18,23 +18,12 @@ git clone https://github.com/tu-usuario/dmoj-downloader.git
 cd dmoj-downloader
 ```
 
-### 2. Crear entorno virtual
+### 2. Instalar dependencias
+
+Requiere [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-En Windows:
-```cmd
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-### 3. Instalar dependencias
-
-```bash
-pip install -r requirements.txt
+uv sync --dev
 ```
 
 ## Configuración
@@ -89,8 +78,7 @@ Este comando:
 ### Ejecutar el servidor
 
 ```bash
-source .venv/bin/activate
-python3 -m uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 El servidor estará disponible en `http://localhost:8000`.
@@ -144,12 +132,8 @@ sudo chown dmoj-dl:dmoj-dl /opt/dmoj-downloader
 cd /opt/dmoj-downloader
 git clone https://github.com/tu-usuario/dmoj-downloader.git .
 
-# Crear entorno virtual
-python3.11 -m venv .venv
-source .venv/bin/activate
-
-# Instalar dependencias
-pip install -r requirements.txt
+# Instalar dependencias (requiere uv)
+uv sync
 ```
 
 ### Paso 3: Configurar variables de entorno
