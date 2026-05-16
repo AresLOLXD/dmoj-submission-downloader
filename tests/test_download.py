@@ -29,7 +29,7 @@ async def setup(monkeypatch):
 async def test_download_unknown_slug_shows_error():
     with respx.mock:
         respx.get(f"{BASE}/api/v2/contest/nope").mock(return_value=httpx.Response(404))
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
             await client.post("/login", data={"username": "user1", "password": "pass"})
             response = await client.get("/download?slug=nope")
     assert response.status_code == 200
@@ -37,6 +37,6 @@ async def test_download_unknown_slug_shows_error():
 
 @pytest.mark.asyncio
 async def test_download_unauthenticated_redirects():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         response = await client.get("/download?slug=ioi2025", follow_redirects=False)
     assert response.status_code == 302

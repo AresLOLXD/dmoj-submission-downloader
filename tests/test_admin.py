@@ -24,7 +24,7 @@ async def setup(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_admin_page_accessible_by_admin():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "admin1", "password": "adminpass"})
         response = await client.get("/admin")
     assert response.status_code == 200
@@ -32,14 +32,14 @@ async def test_admin_page_accessible_by_admin():
 
 @pytest.mark.asyncio
 async def test_admin_page_redirects_non_admin():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "delegate1", "password": "userpass"})
         response = await client.get("/admin", follow_redirects=False)
     assert response.status_code == 302
 
 @pytest.mark.asyncio
 async def test_create_user_via_admin():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "admin1", "password": "adminpass"})
         response = await client.post("/admin/users", data={"username": "newuser", "password": "newpass", "is_admin": ""}, follow_redirects=False)
     assert response.status_code == 303
@@ -50,13 +50,13 @@ async def test_create_user_via_admin():
 
 @pytest.mark.asyncio
 async def test_deactivate_user_via_admin():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "admin1", "password": "adminpass"})
         resp = await client.get("/admin")
     async with aiosqlite.connect(TEST_DB) as db:
         db.row_factory = aiosqlite.Row
         delegate = await get_user_by_username(db, "delegate1")
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "admin1", "password": "adminpass"})
         response = await client.post(f"/admin/users/{delegate.id}/toggle", follow_redirects=False)
     assert response.status_code == 303

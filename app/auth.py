@@ -7,13 +7,16 @@ from app.models import User
 from typing import Optional
 
 
+_DUMMY_HASH = bcrypt.hashpw(b"dummy", bcrypt.gensalt(rounds=12)).decode()
+
 async def authenticate(username: str, password: str) -> Optional[User]:
     async with aiosqlite.connect(database.DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         user = await get_user_by_username(db, username)
-    if user is None or not user.is_active:
+    check_hash = user.password_hash if (user and user.is_active) else _DUMMY_HASH
+    if not bcrypt.checkpw(password.encode(), check_hash.encode()):
         return None
-    if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+    if user is None or not user.is_active:
         return None
     return user
 

@@ -22,28 +22,28 @@ async def setup(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_login_with_valid_credentials_redirects_to_dashboard():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         response = await client.post("/login", data={"username": "delegate1", "password": "secret"}, follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["location"] == "/dashboard"
 
 @pytest.mark.asyncio
 async def test_login_with_invalid_credentials_shows_error():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         response = await client.post("/login", data={"username": "delegate1", "password": "wrong"})
     assert response.status_code == 200
     assert b"Invalid" in response.content
 
 @pytest.mark.asyncio
 async def test_dashboard_redirects_to_login_when_unauthenticated():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         response = await client.get("/dashboard", follow_redirects=False)
     assert response.status_code == 302
     assert "/login" in response.headers["location"]
 
 @pytest.mark.asyncio
 async def test_logout_clears_session():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "delegate1", "password": "secret"})
         logout_response = await client.post("/logout", follow_redirects=False)
     assert logout_response.status_code == 303
@@ -51,7 +51,7 @@ async def test_logout_clears_session():
 
 @pytest.mark.asyncio
 async def test_dashboard_accessible_when_authenticated():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
         await client.post("/login", data={"username": "delegate1", "password": "secret"})
         response = await client.get("/dashboard")
     assert response.status_code == 200

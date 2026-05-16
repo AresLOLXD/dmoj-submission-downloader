@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 from fastapi import FastAPI, Form, Request
@@ -12,7 +13,13 @@ from app.dmoj_client import DMOJClient, ContestNotFoundError
 from app.zip_builder import sanitize_name, stream_contest_zip
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=config.SECRET_KEY, max_age=28800)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=config.SECRET_KEY,
+    max_age=28800,
+    https_only=True,
+    same_site="strict",
+)
 app.include_router(admin_router)
 templates = Jinja2Templates(directory="templates")
 
@@ -61,6 +68,13 @@ async def download(request: Request, slug: str):
     if user is None or not user.is_active:
         return RedirectResponse("/login", status_code=302)
 
+    if not re.fullmatch(r"[a-zA-Z0-9_\-]{1,64}", slug):
+        return templates.TemplateResponse(
+            request,
+            "dashboard.html",
+            {"user": user, "error": "Slug inválido. Solo se permiten letras, números, guiones y guiones bajos."},
+        )
+
     dmoj = DMOJClient(base_url=config.DMOJ_BASE_URL, token=config.DMOJ_API_TOKEN)
 
     try:
@@ -104,5 +118,5 @@ async def download(request: Request, slug: str):
     return StreamingResponse(
         stream_contest_zip(iter(subs)),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{slug}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="{sanitize_name(slug)}.zip"'},
     )
