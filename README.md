@@ -5,8 +5,9 @@ Una aplicación web FastAPI que permite a delegados autenticados descargar todos
 ## Requisitos
 
 - Python 3.11 o superior
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (gestor de paquetes y entornos virtuales)
 - SQLite 3 (incluido en Python)
-- Caddy (para producción con TLS automático)
+- Un reverse proxy para producción (se recomienda [Caddy](https://caddyserver.com/) por su configuración simple y TLS automático, pero cualquier otro como nginx o Traefik funciona)
 - Acceso a una instancia DMOJ auto-hospedada con token API válido
 
 ## Instalación
@@ -125,7 +126,7 @@ El despliegue en producción utiliza:
 
 - **Uvicorn** como servidor ASGI (escuchando en `127.0.0.1:8000`)
 - **systemd** como gestor de servicios (reinicio automático en fallos)
-- **Caddy** como proxy inverso con TLS automático
+- **Un reverse proxy** para exponer la aplicación al exterior y terminar TLS. Las instrucciones usan Caddy por su simplicidad, pero puedes usar nginx, Traefik o cualquier otro
 
 ### Paso 1: Preparar el servidor
 
