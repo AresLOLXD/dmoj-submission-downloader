@@ -7,11 +7,13 @@ from starlette.middleware.sessions import SessionMiddleware
 from app import config
 from app.database import init_db
 from app.auth import authenticate, get_current_user
+from app.admin import router as admin_router
 from app.dmoj_client import DMOJClient, ContestNotFoundError
 from app.zip_builder import sanitize_name, stream_contest_zip
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=config.SECRET_KEY, max_age=28800)
+app.include_router(admin_router)
 templates = Jinja2Templates(directory="templates")
 
 @app.on_event("startup")
