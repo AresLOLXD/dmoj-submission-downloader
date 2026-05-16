@@ -1,7 +1,9 @@
 import logging
 import re
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
@@ -50,7 +52,13 @@ class LoggingMiddleware:
             )
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    await init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=config.SECRET_KEY,
@@ -61,10 +69,6 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 app.include_router(admin_router)
 templates = Jinja2Templates(directory="templates")
-
-@app.on_event("startup")
-async def startup():
-    await init_db()
 
 @app.get("/")
 async def root():
