@@ -130,6 +130,32 @@ async def test_download_sets_cookie_when_valid_token_provided(monkeypatch):
     assert "download_ready=abc12345" in cookie_header
     assert "SameSite=Strict" in cookie_header
 
+@pytest.mark.asyncio
+async def test_download_cookie_has_secure_flag_when_https_only(monkeypatch):
+    monkeypatch.setattr("app.config.HTTPS_ONLY", True)
+    with respx.mock:
+        respx.get(f"{BASE}/api/v2/contest/ioi2025").mock(return_value=httpx.Response(200, json={
+            "data": {"object": {"key": "ioi2025", "rankings": [{"user": "alice"}]}}
+        }))
+        respx.get(f"{BASE}/api/v2/submissions").mock(return_value=httpx.Response(200, json={
+            "data": {
+                "objects": [
+                    {"id": 1, "user": "alice", "problem": "prob_a", "result": "AC",
+                     "language": "PY3", "date": "2025-05-15T14:30:22+00:00"},
+                ],
+                "has_more": False
+            }
+        }))
+        respx.get(f"{BASE}/src/1/raw").mock(return_value=httpx.Response(200, text="print('hi')"))
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://test") as client:
+            await client.post("/login", data={"username": "user1", "password": "pass"})
+            response = await client.get("/download?slug=ioi2025&token=abc12345")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie", "")
+    assert "download_ready=abc12345" in cookie_header
+    assert "Secure" in cookie_header
 
 @pytest.mark.asyncio
 async def test_download_ignores_invalid_token():
