@@ -64,11 +64,32 @@ async def test_get_submissions_paginates(make_client):
     assert submissions[1]["id"] == 2
 
 @pytest.mark.asyncio
-async def test_get_submission_source_returns_code(make_client):
+async def test_get_submission_source_raw_returns_code(make_client):
     with respx.mock:
-        respx.get(f"{BASE}/api/v2/submission/42").mock(return_value=httpx.Response(200, json={
-            "data": {"object": {"id": 42, "source": "print('hello')"}}
-        }))
+        respx.get(f"{BASE}/src/42/raw").mock(
+            return_value=httpx.Response(200, text="print('hello')")
+        )
         async with make_client() as client:
-            source = await client.get_submission_source(42)
+            source = await client.get_submission_source_raw(42)
     assert source == "print('hello')"
+
+
+@pytest.mark.asyncio
+async def test_get_all_sources_returns_dict(make_client):
+    with respx.mock:
+        respx.get(f"{BASE}/src/1/raw").mock(return_value=httpx.Response(200, text="code_1"))
+        respx.get(f"{BASE}/src/2/raw").mock(return_value=httpx.Response(200, text="code_2"))
+        respx.get(f"{BASE}/src/3/raw").mock(return_value=httpx.Response(200, text="code_3"))
+        async with make_client() as client:
+            result = await client.get_all_sources([1, 2, 3])
+    assert result == {1: "code_1", 2: "code_2", 3: "code_3"}
+
+
+@pytest.mark.asyncio
+async def test_get_all_sources_omits_failed_submissions(make_client):
+    with respx.mock:
+        respx.get(f"{BASE}/src/1/raw").mock(return_value=httpx.Response(200, text="code_1"))
+        respx.get(f"{BASE}/src/2/raw").mock(return_value=httpx.Response(403))
+        async with make_client() as client:
+            result = await client.get_all_sources([1, 2])
+    assert result == {1: "code_1"}

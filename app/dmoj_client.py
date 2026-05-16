@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from typing import Any
 
@@ -56,11 +57,27 @@ class DMOJClient:
             params["after"] = data["next_page_id"]
         return results
 
-    async def get_submission_source(self, submission_id: int) -> str:
+    async def get_submission_source_raw(self, submission_id: int) -> str:
         client = self._get_client()
-        resp = await client.get(f"{self._base}/api/v2/submission/{submission_id}")
+        resp = await client.get(f"{self._base}/src/{submission_id}/raw")
         resp.raise_for_status()
-        return resp.json()["data"]["object"]["source"]
+        return resp.text
+
+    async def get_all_sources(
+        self, ids: list[int], concurrency: int = 20
+    ) -> dict[int, str]:
+        sem = asyncio.Semaphore(concurrency)
+
+        async def fetch(submission_id: int) -> tuple[int, str | None]:
+            async with sem:
+                try:
+                    source = await self.get_submission_source_raw(submission_id)
+                    return submission_id, source
+                except httpx.HTTPStatusError:
+                    return submission_id, None
+
+        pairs = await asyncio.gather(*(fetch(i) for i in ids))
+        return {sid: src for sid, src in pairs if src is not None}
 
     @staticmethod
     def language_to_ext(language: str) -> str:
