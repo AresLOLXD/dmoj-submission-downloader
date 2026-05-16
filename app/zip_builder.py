@@ -64,7 +64,7 @@ def stream_contest_zip(submissions: Iterator[dict[str, Any]]) -> Iterator[bytes]
             verdict=sub["verdict"],
             ext=sub["ext"],
         )
-        arcname = f"{sub['sanitized_username']}/{sub['problem']}/{filename}"
+        arcname = f"{sub['sanitized_username']}/{sanitize_name(sub['problem'])}/{filename}"
         source = sub["source"]
         zf.writestr(arcname, source if isinstance(source, bytes) else source.encode())
     yield from zf
