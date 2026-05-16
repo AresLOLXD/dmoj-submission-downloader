@@ -93,3 +93,13 @@ async def test_get_all_sources_omits_failed_submissions(make_client):
         async with make_client() as client:
             result = await client.get_all_sources([1, 2])
     assert result == {1: "code_1"}
+
+
+@pytest.mark.asyncio
+async def test_get_all_sources_omits_network_errors(make_client):
+    with respx.mock:
+        respx.get(f"{BASE}/src/1/raw").mock(return_value=httpx.Response(200, text="code_1"))
+        respx.get(f"{BASE}/src/2/raw").mock(side_effect=httpx.ConnectError("timeout"))
+        async with make_client() as client:
+            result = await client.get_all_sources([1, 2])
+    assert result == {1: "code_1"}

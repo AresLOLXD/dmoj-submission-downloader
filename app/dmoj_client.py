@@ -1,6 +1,9 @@
 import asyncio
+import logging
 import httpx
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 LANGUAGE_EXTENSIONS: dict[str, str] = {
     "PY3": "py", "PY2": "py", "CPP17": "cpp", "CPP14": "cpp", "CPP11": "cpp",
@@ -73,7 +76,8 @@ class DMOJClient:
                 try:
                     source = await self.get_submission_source_raw(submission_id)
                     return submission_id, source
-                except httpx.HTTPStatusError:
+                except httpx.HTTPError as exc:
+                    logger.warning("Failed to fetch source for submission %s: %s", submission_id, exc)
                     return submission_id, None
 
         pairs = await asyncio.gather(*(fetch(i) for i in ids))
