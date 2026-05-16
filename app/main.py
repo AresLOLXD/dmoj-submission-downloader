@@ -17,7 +17,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=config.SECRET_KEY,
     max_age=28800,
-    https_only=True,
+    https_only=config.HTTPS_ONLY,
     same_site="strict",
 )
 app.include_router(admin_router)
@@ -90,9 +90,15 @@ async def download(request: Request, slug: str):
             )
 
         submissions = await dmoj.get_contest_submissions(slug)
+        sources = await dmoj.get_all_sources([sub["id"] for sub in submissions])
+
         counters: dict[str, dict[str, int]] = {}
         subs = []
         for sub in submissions:
+            source = sources.get(sub["id"])
+            if source is None:
+                continue
+
             username = sub["user"]
             problem = sub["problem"]
             sanitized = sanitize_name(username)
@@ -101,7 +107,6 @@ async def download(request: Request, slug: str):
             index = counters[sanitized][problem]
 
             dt = datetime.fromisoformat(sub["date"].replace("Z", "+00:00"))
-            source = await dmoj.get_submission_source(sub["id"])
             ext = DMOJClient.language_to_ext(sub.get("language", ""))
 
             subs.append({
@@ -112,7 +117,7 @@ async def download(request: Request, slug: str):
                 "time_str": dt.strftime("%H-%M-%S"),
                 "verdict": sub.get("result", "UNK"),
                 "ext": ext,
-                "source": source.encode() if isinstance(source, str) else source,
+                "source": source.encode(),
             })
 
     return StreamingResponse(
