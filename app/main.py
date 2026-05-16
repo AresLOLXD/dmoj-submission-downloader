@@ -11,3 +11,10 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+from app.database import init_db
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
