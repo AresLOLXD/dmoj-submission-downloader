@@ -24,15 +24,16 @@ async def health():
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "user": None, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"user": None, "error": None})
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     user = await authenticate(username, password)
     if user is None:
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "user": None, "error": "Invalid username or password"},
+            {"user": None, "error": "Invalid username or password"},
             status_code=200,
         )
     request.session.clear()
@@ -49,7 +50,7 @@ async def dashboard(request: Request):
     user = await get_current_user(request)
     if user is None or not user.is_active:
         return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+    return templates.TemplateResponse(request, "dashboard.html", {"user": user})
 
 
 @app.get("/download")
@@ -64,8 +65,9 @@ async def download(request: Request, slug: str):
         await dmoj.get_contest_participants(slug)
     except ContestNotFoundError:
         return templates.TemplateResponse(
+            request,
             "dashboard.html",
-            {"request": request, "user": user, "error": f"Concurso '{slug}' no encontrado."},
+            {"user": user, "error": f"Concurso '{slug}' no encontrado."},
         )
 
     async def collect():
