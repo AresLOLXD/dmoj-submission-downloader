@@ -19,11 +19,11 @@ class DMOJClient:
     async def get_contest_participants(self, slug: str) -> list[str]:
         async with httpx.AsyncClient(headers=self._headers, timeout=30) as client:
             resp = await client.get(f"{self._base}/api/v2/contest/{slug}")
-        if resp.status_code == 404:
-            raise ContestNotFoundError(slug)
-        resp.raise_for_status()
-        rankings = resp.json()["data"]["object"]["rankings"]
-        return [r["user"] for r in rankings]
+            if resp.status_code == 404:
+                raise ContestNotFoundError(slug)
+            resp.raise_for_status()
+            rankings = resp.json()["data"]["object"]["rankings"]
+            return [r["user"] for r in rankings]
 
     async def get_contest_submissions(self, slug: str) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
@@ -42,8 +42,8 @@ class DMOJClient:
     async def get_submission_source(self, submission_id: int) -> str:
         async with httpx.AsyncClient(headers=self._headers, timeout=30) as client:
             resp = await client.get(f"{self._base}/api/v2/submission/{submission_id}")
-        resp.raise_for_status()
-        return resp.json()["data"]["object"]["source"]
+            resp.raise_for_status()
+            return resp.json()["data"]["object"]["source"]
 
     @staticmethod
     def language_to_ext(language: str) -> str:
