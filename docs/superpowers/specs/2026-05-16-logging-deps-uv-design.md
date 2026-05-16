@@ -156,6 +156,16 @@ The `.service` file for systemd uses the full venv path (`/path/to/.venv/bin/uvi
 
 ---
 
+## Subagents
+
+| Task | Subagent | Reason |
+|---|---|---|
+| Logging system (`logging_config.py`, middleware, per-module loggers) | `voltagent-lang:fastapi-developer` | FastAPI middleware patterns, async request lifecycle, stdlib logging wiring |
+| Dependency updates (bump versions, fix breaking changes) | `voltagent-dev-exp:dependency-manager` | Specialized in auditing versions, resolving conflicts, validating upgrades |
+| uv migration (`pyproject.toml`, delete `requirements.txt`, update docs) | `voltagent-dev-exp:dependency-manager` | uv/pyproject.toml expertise fits naturally with the dependency-manager role |
+
+These three tasks are independent and can be dispatched in parallel once the implementation plan is ready.
+
 ## Testing
 
 - All existing tests must pass after each change.
