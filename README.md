@@ -27,6 +27,8 @@ Requiere [uv](https://docs.astral.sh/uv/getting-started/installation/).
 uv sync --dev
 ```
 
+> `--dev` incluye las dependencias de prueba. En producción usa `uv sync` sin esa bandera.
+
 ## Configuración
 
 ### Variables de entorno
@@ -62,16 +64,16 @@ LOG_LEVEL=INFO
 Después de configurar las variables de entorno, crea la base de datos y el usuario administrador inicial:
 
 ```bash
-uv run python3 create_admin.py nombre_usuario contraseña_segura
+uv run python3 create_admin.py nombre_usuario
 ```
 
 Ejemplo:
 
 ```bash
-uv run python3 create_admin.py admin mi_contraseña_fuerte_123
+uv run python3 create_admin.py admin
 ```
 
-Este comando:
+El script te pedirá la contraseña sin mostrarla en pantalla. Este comando:
 
 1. Inicializa la base de datos SQLite (`dmoj_downloader.db`)
 2. Crea un usuario administrador con las credenciales proporcionadas
@@ -136,37 +138,42 @@ sudo apt update && sudo apt upgrade -y
 
 # Instalar Python 3.11 si no lo tiene
 sudo apt install -y python3.11 python3.11-dev
+python3.11 --version
 
 # Instalar uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
 
 # Instalar Caddy
 sudo apt install -y caddy
 
 # Crear directorio de la aplicación
 sudo mkdir -p /opt/dmoj-downloader
-sudo chown your-user:your-user /opt/dmoj-downloader
+sudo chown $USER:$USER /opt/dmoj-downloader
 ```
 
-Reemplaza `your-user` con tu usuario de sistema real.
+### Paso 2: Crear usuario de servicio
 
-### Paso 2: Clonar y configurar
+Crea el usuario del sistema que ejecutará la aplicación. Este usuario no tiene contraseña ni acceso interactivo.
+
+```bash
+sudo useradd -r -s /bin/false dmoj-dl
+```
+
+### Paso 3: Clonar y configurar
 
 ```bash
 cd /opt/dmoj-downloader
 git clone https://github.com/AresLOLXD/dmoj-submission-downloader.git .
 
-# Instalar dependencias (requiere uv)
+# Instalar dependencias (sin --dev en producción)
 uv sync
 ```
 
-### Paso 3: Configurar variables de entorno
+### Paso 4: Configurar variables de entorno
 
 ```bash
-# Crear archivo .env desde el ejemplo
 cp .env.example .env
-
-# Editar con los valores de producción
 nano .env
 ```
 
@@ -176,27 +183,50 @@ Asegúrate de completar todos los valores, especialmente:
 - `DMOJ_API_TOKEN`
 - `SECRET_KEY` (generado con `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`)
 
-### Paso 4: Crear primer administrador
+Protege el archivo de secretos para que solo tu usuario pueda leerlo:
+
+```bash
+chmod 600 .env
+```
+
+### Paso 5: Crear primer administrador
 
 ```bash
 cd /opt/dmoj-downloader
-uv run python3 create_admin.py tu_usuario_admin tu_contraseña_segura
+uv run python3 create_admin.py tu_usuario_admin
 ```
 
-### Paso 5: Instalar servicio systemd
+El script te pedirá la contraseña sin mostrarla en pantalla. Este comando:
+
+1. Inicializa la base de datos SQLite (`dmoj_downloader.db`)
+2. Crea un usuario administrador con las credenciales proporcionadas
+3. Imprime un mensaje de confirmación
+
+**Nota:** Solo puedes crear un administrador inicial con este script. Para agregar más usuarios, usa el panel de administración web después de iniciar sesión.
+
+### Paso 6: Aplicar permisos al usuario de servicio
+
+Transfiere la propiedad de la base de datos al usuario de servicio. El resto del código sigue siendo tuyo, lo que te permite actualizarlo sin necesitar permisos adicionales.
+
+Verifica que la base de datos fue creada correctamente:
+
+```bash
+ls /opt/dmoj-downloader/dmoj_downloader.db
+```
+
+Si el archivo existe, continúa:
+
+```bash
+sudo chown dmoj-dl:dmoj-dl /opt/dmoj-downloader/dmoj_downloader.db
+```
+
+### Paso 7: Instalar servicio systemd
 
 Copia el archivo de servicio a systemd:
 
 ```bash
 sudo cp /opt/dmoj-downloader/dmoj-downloader.service /etc/systemd/system/
 sudo systemctl daemon-reload
-```
-
-**Nota:** El archivo `dmoj-downloader.service` está configurado para ejecutarse como usuario `dmoj-dl`. Debes crear este usuario:
-
-```bash
-sudo useradd -r -s /bin/false dmoj-dl
-sudo chown -R dmoj-dl:dmoj-dl /opt/dmoj-downloader
 ```
 
 Inicia el servicio:
@@ -218,7 +248,7 @@ Ver logs:
 sudo journalctl -u dmoj-downloader -f
 ```
 
-### Paso 6: Configurar Caddy
+### Paso 8: Configurar Caddy
 
 Edita el Caddyfile:
 
@@ -248,7 +278,7 @@ Verifica que Caddy esté corriendo:
 sudo systemctl status caddy
 ```
 
-### Paso 7: Verificar despliegue
+### Paso 9: Verificar despliegue
 
 1. Accede a `https://tu-dominio.com` en tu navegador
 2. Serás redirigido a `/login` automáticamente
@@ -289,6 +319,23 @@ nombre-concurso.zip
    - Crear nuevos usuarios (delegados o administradores)
    - Cambiar contraseñas
    - Activar/desactivar cuentas
+
+## Actualizar la aplicación
+
+Cuando haya una nueva versión disponible:
+
+```bash
+cd /opt/dmoj-downloader
+git pull
+uv sync
+sudo systemctl restart dmoj-downloader
+```
+
+Verifica que el servicio siga corriendo después de la actualización:
+
+```bash
+sudo systemctl status dmoj-downloader
+```
 
 ## Monitoreo en producción
 
