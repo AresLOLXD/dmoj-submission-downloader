@@ -1,6 +1,6 @@
 import pytest
 import aiosqlite
-from app.database import init_db, create_user, get_user_by_username, get_all_users, set_user_active
+from app.database import init_db, create_user, get_user_by_username, get_all_users, set_user_active, update_password
 
 TEST_DB = "test_dmoj.db"
 
@@ -50,3 +50,13 @@ async def test_get_all_users_returns_created_users():
         await create_user(db, "user2", "hash2")
         users = await get_all_users(db)
     assert len(users) == 2
+
+
+@pytest.mark.asyncio
+async def test_update_password_changes_hash():
+    async with aiosqlite.connect(TEST_DB) as db:
+        db.row_factory = aiosqlite.Row
+        user = await create_user(db, "charlie", "old_hash")
+        await update_password(db, user.id, "new_hash")
+        updated = await get_user_by_username(db, "charlie")
+    assert updated.password_hash == "new_hash"

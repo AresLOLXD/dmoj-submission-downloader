@@ -1,6 +1,6 @@
 import aiosqlite
 from datetime import datetime
-from typing import Optional
+from typing import AsyncGenerator, Optional
 from app.models import User
 
 DB_PATH = "dmoj_downloader.db"
@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS users (
 """
 
 
-async def get_db() -> aiosqlite.Connection:
-    db = await aiosqlite.connect(DB_PATH)
-    db.row_factory = aiosqlite.Row
-    return db
+async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        yield db
 
 
 async def init_db() -> None:
